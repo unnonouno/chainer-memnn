@@ -13,19 +13,18 @@ import nlputil
 import dot
 
 
-def _encode(embed, sentence):
-    vs = []
-    for w in sentence:
-        valid = (w.data != 0).reshape((w.data.shape[0], 1))
-        e = embed(w)
-        valid, _ = xp.broadcast_arrays(valid, e.data)
-        valid = chainer.Variable(valid)
-        zero = chainer.Variable(xp.zeros_like(e.data))
-        e = F.where(valid, e, zero)
-        e = F.reshape(e, (e.data.shape[0], 1, e.data.shape[1]))
-        vs.append(e)
-    v = F.concat(vs, axis=1)
-    s = F.sum(v, axis=1)
+def _encode(embed, sentences, length, position_encoding=True):
+    e = embed(chainer.Variable(sentences))
+    if position_encoding:
+        n_batch = e.data.shape[0]
+        n_words = e.data.shape[1]
+        n_units = e.data.shape[2]
+        length = length.reshape(n_batch, 1, 1).astype(numpy.float32)
+        k = (xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units).reshape(1, 1, n_units)
+        i = (xp.arange(1, n_words + 1, dtype=numpy.float32)).reshape(1, n_words, 1)
+        coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
+        e = chainer.Variable(coeff) * e
+    s = F.sum(e, axis=1)
     return s
 
 
@@ -43,15 +42,13 @@ class Memory(object):
         self.ms = []
         self.cs = []
 
-    def encode(self, sentence):
-        mi = _encode(self.A, sentence)
-        ci = _encode(self.C, sentence)
+    def encode(self, sentence, lengths):
+        mi = _encode(self.A, sentence, lengths)
+        ci = _encode(self.C, sentence, lengths)
         return mi, ci
 
-    def register(self, sentence):
-        assert(isinstance(sentence, list))
-
-        mi, ci = self.encode(sentence)
+    def register(self, sentence, lengths):
+        mi, ci = self.encode(sentence, lengths)
         mi = F.reshape(mi, (mi.data.shape[0], 1, mi.data.shape[1]))
         ci = F.reshape(ci, (ci.data.shape[0], 1, ci.data.shape[1]))
         self.ms.append(mi)
@@ -113,19 +110,34 @@ class MemNN(chainer.Chain):
         self.M2.reset_state()
         self.M3.reset_state()
 
-    def register(self, sentence):
-        self.M1.register(sentence)
-        self.M2.register(sentence)
-        self.M3.register(sentence)
+    def register(self, sentence, lengths):
+        self.M1.register(sentence, lengths)
+        self.M2.register(sentence, lengths)
+        self.M3.register(sentence, lengths)
 
-    def query(self, question, y):
-        u = _encode(self.B, question)
+    def query(self, question, lengths, y):
+        u = _encode(self.B, question, lengths)
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
         #a = self.W(u)
         a = F.linear(u, self.E4.W)
         return F.softmax_cross_entropy(a, y), F.accuracy(a, y)
+
+
+def make_batch_sentence(lines):
+    batch_size = len(lines)
+    max_sent_len = max(len(line.sentence) for line in lines)
+    # Fill zeros
+    ws = numpy.zeros((batch_size, max_sent_len), dtype=numpy.int32)
+    for i, line in enumerate(lines):
+        ws[i, 0:len(line.sentence)] = line.sentence
+    if xp is cupy:
+        ws = chainer.cuda.to_gpu(ws)
+
+    lengths = xp.array([len(line.sentence) for line in lines], dtype=numpy.int32)
+
+    return ws, lengths
 
 
 def proc(proc_data, batch_size, train=True):
@@ -145,20 +157,14 @@ def proc(proc_data, batch_size, train=True):
             for b in indexes:
                 d = proc_data[b]
                 lines.append(d[i])
-            max_sent_len = max(len(line.sentence) for line in lines)
-            sentences = []
-            for t in range(max_sent_len):
-                ws = [line.sentence[t] if t < len(line.sentence) else 0 for line in lines]
-                ws_data = xp.array(ws, dtype=numpy.int32)
-                word = chainer.Variable(ws_data)
-                sentences.append(word)
+            sentences, lengths = make_batch_sentence(lines)
 
             if all(isinstance(line, data.Sentence) for line in lines):
-                model.register(sentences)
+                model.register(sentences, lengths)
             elif all(isinstance(line, data.Query) for line in lines):
                 y_data = xp.array([line.answer for line in lines], dtype=numpy.int32)
                 y = chainer.Variable(y_data)
-                loss, acc = model.query(sentences, y)
+                loss, acc = model.query(sentences, lengths, y)
 
                 if train:
                     if accum_loss is None:
