@@ -147,15 +147,13 @@ def proc(proc_data, batch_size, train=True):
     batch_size = min(batch_size, len(proc_data))
 
     for begin in range(0, len(proc_data), batch_size):
-        indexes = list(range(begin, min(len(proc_data), begin + batch_size)))
-        max_len = max(len(proc_data[b]) for b in indexes)
+        end = min(len(proc_data), begin + batch_size)
+        batch_data = proc_data[begin:end]
+        max_len = max(len(d) for d in batch_data)
         model.reset_state()
         accum_loss = None
         for i in range(max_len):
-            lines = []
-            for b in indexes:
-                d = proc_data[b]
-                lines.append(d[i])
+            lines = [d[i] for d in batch_data]
             sentences, lengths = make_batch_sentence(lines)
 
             if all(isinstance(line, data.Sentence) for line in lines):
