@@ -1,3 +1,4 @@
+import glob
 import random
 
 import numpy
@@ -175,14 +176,16 @@ if __name__ == '__main__':
     import data
     from chainer import optimizers
     vocab = nlputil.Vocabulary()
+    data_dir = '/home/unno/qa/tasks_1-20_v1-2'
+    data_type = 'en'
+    data_id = 1
+
     train_data = data.read_data(
         vocab,
-        '/home/unno/qa/tasks_1-20_v1-2/en/qa1_single-supporting-fact_train.txt')
-        #'/home/unno/qa/tasks_1-20_v1-2/en-10k/qa12_conjunction_train.txt')
-    #'/home/unno/qa/tasks_1-20_v1-2/en-10k/qa20_agents-motivations_train.txt')
+        glob.glob('%s/%s/qa%d_*train.txt' % (data_dir, data_type, data_id))[0])
     test_data = data.read_data(
         vocab,
-        '/home/unno/qa/tasks_1-20_v1-2/en/qa1_single-supporting-fact_test.txt')
+        glob.glob('%s/%s/qa%d_*test.txt' % (data_dir, data_type, data_id))[0])
     print('Training data: %d' % len(train_data))
 
     model = MemNN(50, vocab.size)
