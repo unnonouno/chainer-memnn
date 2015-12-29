@@ -134,7 +134,7 @@ def proc(proc_data, train=True):
     count = 0
 
     for begin in range(0, len(proc_data), batch_size):
-        indexes = list(range(begin, begin + batch_size))
+        indexes = list(range(begin, min(len(proc_data), begin + batch_size)))
         max_len = max(len(proc_data[b]) for b in indexes)
         model.reset_state()
         for i in range(max_len):
