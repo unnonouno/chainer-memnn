@@ -21,14 +21,14 @@ def parse_line(vocab, line):
         # question line
         question, answer, fact_id = line.split('\t')
         aid = vocab.convert([answer], update=True)[0]
-        words = split(question)[1:]
+        words = split(question)
         wid = vocab.convert(words, update=True)
         ids = list(map(int, fact_id.split(' ')))
         return Query(wid, aid, ids)
 
     else:
         # sentence line
-        words = split(line)[1:]
+        words = split(line)
         wid = vocab.convert(words, update=True)
         return Sentence(wid)
 
