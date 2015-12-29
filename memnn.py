@@ -128,15 +128,18 @@ class MemNN(chainer.Chain):
         return F.softmax_cross_entropy(a, y), F.accuracy(a, y)
 
 
-def proc(proc_data, train=True):
-    accum_loss = 0
-    accum_acc = 0
+def proc(proc_data, batch_size, train=True):
+    total_loss = 0
+    total_acc = 0
     count = 0
+
+    batch_size = min(batch_size, len(proc_data))
 
     for begin in range(0, len(proc_data), batch_size):
         indexes = list(range(begin, min(len(proc_data), begin + batch_size)))
         max_len = max(len(proc_data[b]) for b in indexes)
         model.reset_state()
+        accum_loss = None
         for i in range(max_len):
             lines = []
             for b in indexes:
@@ -158,18 +161,26 @@ def proc(proc_data, train=True):
                 loss, acc = model.query(sentences, y)
 
                 if train:
-                    accum_loss += loss.data
-                    accum_acc += acc.data
-                    model.zerograds()
-                    loss.backward()
-                    opt.update()
-                else:
-                    accum_acc += acc.data
+                    if accum_loss is None:
+                        accum_loss = loss
+                    else:
+                        accum_loss += loss
+
+                total_loss += loss.data
+                total_acc += acc.data
                 count += 1
             else:
                 raise
 
-    print(accum_loss, accum_acc / count)
+        if accum_loss is not None:
+            model.zerograds()
+            accum_loss.backward()
+            opt.update()
+            for link in model.links():
+                if isinstance(link, L.EmbedID):
+                    link.W.data[0, :] = 0
+
+    print('loss: %.4f\tacc: %.2f' % (float(total_loss), float(total_acc) / count * 100))
 
 
 if __name__ == '__main__':
