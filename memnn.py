@@ -39,6 +39,8 @@ class Memory(chainer.Chain):
         )
         self.A.W.data[:] = numpy.random.normal(0, 0.1, self.A.W.data.shape)
         self.C.W.data[:] = numpy.random.normal(0, 0.1, self.C.W.data.shape)
+        self.TA.W.data[:] = numpy.random.normal(0, 0.1, self.TA.W.data.shape)
+        self.TC.W.data[:] = numpy.random.normal(0, 0.1, self.TC.W.data.shape)
         self.m = None
         self.c = None
 
