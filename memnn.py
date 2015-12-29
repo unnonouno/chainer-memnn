@@ -62,7 +62,6 @@ class Memory(object):
         inds, _ = xp.broadcast_arrays(
             xp.arange(size, dtype=numpy.int32)[::-1],
             xp.empty((batch, 1)))
-        assert inds.shape == (batch, size)
         inds = chainer.Variable(inds)
         tm = self.TA(inds)
         tc = self.TC(inds)
