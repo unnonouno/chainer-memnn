@@ -41,12 +41,12 @@ class Memory(chainer.Chain):
         self.C.W.data[:] = numpy.random.normal(0, 0.1, self.C.W.data.shape)
         self.TA.W.data[:] = numpy.random.normal(0, 0.1, self.TA.W.data.shape)
         self.TC.W.data[:] = numpy.random.normal(0, 0.1, self.TC.W.data.shape)
-        self.m = None
-        self.c = None
+        self.ms = []
+        self.cs = []
 
     def reset_state(self):
-        self.m = None
-        self.c = None
+        self.ms = []
+        self.cs = []
 
     def encode(self, sentence):
         mi = _encode(self.A, sentence)
@@ -59,19 +59,14 @@ class Memory(chainer.Chain):
         mi, ci = self.encode(sentence)
         mi = F.reshape(mi, (mi.data.shape[0], 1, mi.data.shape[1]))
         ci = F.reshape(ci, (ci.data.shape[0], 1, ci.data.shape[1]))
-        if self.m is None:
-            self.m = mi
-        else:
-            self.m = F.concat([self.m, mi])
-
-        if self.c is None:
-            self.c = ci
-        else:
-            self.c = F.concat([self.c, ci])
+        self.ms.append(mi)
+        self.cs.append(ci)
 
     def query(self, u):
-        batch = self.m.data.shape[0]
-        size = self.m.data.shape[1]
+        m = F.concat(self.ms)
+        c = F.concat(self.cs)
+        batch = m.data.shape[0]
+        size = m.data.shape[1]
         inds, _ = xp.broadcast_arrays(
             xp.arange(size, dtype=numpy.int32)[::-1],
             xp.empty((batch, 1)))
@@ -79,8 +74,8 @@ class Memory(chainer.Chain):
         inds = chainer.Variable(inds)
         tm = self.TA(inds)
         tc = self.TC(inds)
-        p = F.softmax(dot.dot(u, self.m + tm))
-        o = dot.dot(p, F.swapaxes(self.c + tc, 2, 1))
+        p = F.softmax(dot.dot(u, m + tm))
+        o = dot.dot(p, F.swapaxes(c + tc, 2, 1))
         u = o + u
         return u
 
