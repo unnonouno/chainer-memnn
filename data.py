@@ -13,7 +13,7 @@ class Sentence(object):
 
 
 def split(sentence):
-    return sentence.lower().replace('.', ' .').replace('?', ' ?').split()
+    return sentence.lower().replace('.', '').replace('?', '').split()
 
 
 def parse_line(vocab, line):
