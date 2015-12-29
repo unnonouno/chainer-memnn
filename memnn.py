@@ -28,19 +28,13 @@ def _encode(embed, sentence):
     return s
 
 
-class Memory(chainer.Chain):
+class Memory(object):
 
-    def __init__(self, n_units, n_vocab):
-        super(Memory, self).__init__(
-            A=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            C=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            TA=L.EmbedID(15, n_units),
-            TC=L.EmbedID(15, n_units),
-        )
-        self.A.W.data[:] = numpy.random.normal(0, 0.1, self.A.W.data.shape)
-        self.C.W.data[:] = numpy.random.normal(0, 0.1, self.C.W.data.shape)
-        self.TA.W.data[:] = numpy.random.normal(0, 0.1, self.TA.W.data.shape)
-        self.TC.W.data[:] = numpy.random.normal(0, 0.1, self.TC.W.data.shape)
+    def __init__(self, A, C, TA, TC):
+        self.A = A
+        self.C = C
+        self.TA = TA
+        self.TC = TC
         self.ms = []
         self.cs = []
 
@@ -80,18 +74,38 @@ class Memory(chainer.Chain):
         return u
 
 
+def init_params(*embs):
+    for emb in embs:
+        init_param(emb)
+
+
+def init_param(emb):
+    emb.W.data[:] = numpy.random.normal(0, 0.1, emb.W.data.shape)
+
+
 class MemNN(chainer.Chain):
 
     def __init__(self, n_units, n_vocab):
         super(MemNN, self).__init__(
-            M1=Memory(n_units, n_vocab),
-            M2=Memory(n_units, n_vocab),
-            M3=Memory(n_units, n_vocab),
-            B=L.EmbedID(n_vocab, n_units),  # encoder for queries
-            W=L.Linear(n_units, n_vocab),
+            E1=L.EmbedID(n_vocab, n_units),  # encoder for inputs
+            E2=L.EmbedID(n_vocab, n_units),  # encoder for inputs
+            E3=L.EmbedID(n_vocab, n_units),  # encoder for inputs
+            E4=L.EmbedID(n_vocab, n_units),  # encoder for inputs
+            T1=L.EmbedID(15, n_units),  # encoder for inputs
+            T2=L.EmbedID(15, n_units),  # encoder for inputs
+            T3=L.EmbedID(15, n_units),  # encoder for inputs
+            T4=L.EmbedID(15, n_units),  # encoder for inputs
+            #B=L.EmbedID(n_vocab, n_units),  # encoder for queries
+            #W=L.Linear(n_units, n_vocab),
         )
-        self.B.W.data[:] = numpy.random.normal(0, 0.1, self.B.W.data.shape)
-        self.W.W.data[:] = numpy.random.normal(0, 0.1, self.W.W.data.shape)
+
+        self.M1 = Memory(self.E1, self.E2, self.T1, self.T2)
+        self.M2 = Memory(self.E2, self.E3, self.T2, self.T3)
+        self.M3 = Memory(self.E3, self.E4, self.T3, self.T4)
+        self.B = self.E1
+
+        init_params(self.E1, self.E2, self.E3, self.E4,
+                    self.T1, self.T2, self.T3, self.T4)
 
     def reset_state(self):
         self.M1.reset_state()
@@ -108,9 +122,8 @@ class MemNN(chainer.Chain):
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
-        a = self.W(u)
-        #print('a: ', a.data.argmax(axis=1))
-        #print('y: ', y.data)
+        #a = self.W(u)
+        a = F.linear(u, self.E4.W)
         return F.softmax_cross_entropy(a, y), F.accuracy(a, y)
 
 
