@@ -48,15 +48,15 @@ class Memory(chainer.Chain):
         self.m = None
         self.c = None
 
-    def encode(self, sentence, ind):
-        mi = _encode(self.A, sentence) + self.TA(ind)
-        ci = _encode(self.C, sentence) + self.TC(ind)
+    def encode(self, sentence):
+        mi = _encode(self.A, sentence)
+        ci = _encode(self.C, sentence)
         return mi, ci
 
-    def register(self, sentence, ind):
+    def register(self, sentence):
         assert(isinstance(sentence, list))
 
-        mi, ci = self.encode(sentence, ind)
+        mi, ci = self.encode(sentence)
         mi = F.reshape(mi, (mi.data.shape[0], 1, mi.data.shape[1]))
         ci = F.reshape(ci, (ci.data.shape[0], 1, ci.data.shape[1]))
         if self.m is None:
@@ -70,8 +70,17 @@ class Memory(chainer.Chain):
             self.c = F.concat([self.c, ci])
 
     def query(self, u):
-        p = F.softmax(dot.dot(u, self.m))
-        o = dot.dot(p, F.swapaxes(self.c, 2, 1))
+        batch = self.m.data.shape[0]
+        size = self.m.data.shape[1]
+        inds, _ = xp.broadcast_arrays(
+            xp.arange(size, dtype=numpy.int32)[::-1],
+            xp.empty((batch, 1)))
+        assert inds.shape == (batch, size)
+        inds = chainer.Variable(inds)
+        tm = self.TA(inds)
+        tc = self.TC(inds)
+        p = F.softmax(dot.dot(u, self.m + tm))
+        o = dot.dot(p, F.swapaxes(self.c + tc, 2, 1))
         u = o + u
         return u
 
@@ -94,10 +103,10 @@ class MemNN(chainer.Chain):
         self.M2.reset_state()
         self.M3.reset_state()
 
-    def register(self, sentence, ind):
-        self.M1.register(sentence, ind)
-        self.M2.register(sentence, ind)
-        self.M3.register(sentence, ind)
+    def register(self, sentence):
+        self.M1.register(sentence)
+        self.M2.register(sentence)
+        self.M3.register(sentence)
 
     def query(self, question, y):
         u = _encode(self.B, question)
@@ -133,9 +142,7 @@ def proc(proc_data, train=True):
                 sentences.append(word)
 
             if all(isinstance(line, data.Sentence) for line in lines):
-                ind = xp.empty((batch_size,), numpy.int32)
-                ind[:] = i
-                model.register(sentences, chainer.Variable(ind))
+                model.register(sentences)
             elif all(isinstance(line, data.Query) for line in lines):
                 y_data = xp.array([line.answer for line in lines], dtype=numpy.int32)
                 y = chainer.Variable(y_data)
