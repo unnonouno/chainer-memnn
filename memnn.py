@@ -207,33 +207,22 @@ if __name__ == '__main__':
 
     model = MemNN(50, vocab.size)
     opt = optimizers.Adam()
-    #opt = optimizers.SGD()
+    #opt = optimizers.SGD(lr=0.01)
+    #opt.add_hook(chainer.optimizer.GradientClipping(40))
+    batch_size = 500
+    gpu = 0
+    if gpu >= 0:
+        model.to_gpu()
+        xp = cupy
+    else:
+        xp = numpy
     opt.setup(model)
-    batch_size = len(train_data)
-    model.to_gpu()
-    xp = cupy
 
     for epoch in range(1000):
-        if True:
-            #indexes = list(range(batch_size))
-            random.shuffle(train_data)
-            proc(train_data, train=True)
-            proc(test_data, train=False)
+        if isinstance(opt, optimizers.SGD) and epoch % 25 == 24:
+            opt.lr *= 0.5
+        print(epoch)
 
-        else:
-            for one_data in train_data:
-                model.reset_state()
-                for line in one_data:
-                    wid = line.sentence
-                    sentence = [chainer.Variable(numpy.array([w], dtype=numpy.int32))
-                                for w in wid]
-                    if isinstance(line, data.Sentence):
-                        model.register(sentence)
-                    else:
-                        y = chainer.Variable(numpy.array([line.answer], dtype=numpy.int32))
-                        loss, acc = model.query(sentence, y)
-
-                        accum_loss += loss.data
-                        model.zerograds()
-                        loss.backward()
-                        opt.update()
+        random.shuffle(train_data)
+        proc(train_data, batch_size, train=True)
+        proc(test_data, batch_size, train=False)
