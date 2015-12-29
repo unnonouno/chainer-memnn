@@ -15,12 +15,12 @@ import dot
 def _encode(embed, sentence):
     vs = []
     for w in sentence:
-        valid = (w.data == 0).reshape((w.data.shape[0], 1))
+        valid = (w.data != 0).reshape((w.data.shape[0], 1))
         e = embed(w)
         valid, _ = xp.broadcast_arrays(valid, e.data)
         valid = chainer.Variable(valid)
         zero = chainer.Variable(xp.zeros_like(e.data))
-        F.where(valid, e, zero)
+        e = F.where(valid, e, zero)
         e = F.reshape(e, (e.data.shape[0], 1, e.data.shape[1]))
         vs.append(e)
     v = F.concat(vs, axis=1)
