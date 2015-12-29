@@ -204,7 +204,7 @@ if __name__ == '__main__':
         glob.glob('%s/%s/qa%d_*test.txt' % (data_dir, data_type, data_id))[0])
     print('Training data: %d' % len(train_data))
 
-    model = MemNN(50, vocab.size)
+    model = MemNN(20, vocab.size)
     opt = optimizers.Adam()
     #opt = optimizers.SGD(lr=0.01)
     #opt.add_hook(chainer.optimizer.GradientClipping(40))
