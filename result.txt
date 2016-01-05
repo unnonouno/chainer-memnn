@@ -1,0 +1,40 @@
+Training data: 200
+1: acc: 100.00  err: 0.00
+Training data: 200
+2: acc: 25.00   err: 75.00
+Training data: 200
+3: acc: 21.90   err: 78.10
+Training data: 1000
+4: acc: 67.50   err: 32.50
+Training data: 200
+5: acc: 72.10   err: 27.90
+Training data: 200
+6: acc: 85.30   err: 14.70
+Training data: 200
+7: acc: 70.00   err: 30.00
+Training data: 200
+8: acc: 82.00   err: 18.00
+Training data: 200
+9: acc: 71.90   err: 28.10
+Training data: 200
+10: acc: 76.40  err: 23.60
+Training data: 200
+11: acc: 83.90  err: 16.10
+Training data: 200
+12: acc: 100.00 err: 0.00
+Training data: 200
+13: acc: 86.70  err: 13.30
+Training data: 200
+14: acc: 70.80  err: 29.20
+Training data: 250
+15: acc: 61.00  err: 39.00
+Training data: 1000
+16: acc: 42.00  err: 58.00
+Training data: 125
+17: acc: 53.40  err: 46.60
+Training data: 198
+18: acc: 50.50  err: 49.50
+Training data: 1000
+19: acc: 9.10   err: 90.90
+Training data: 94
+20: acc: 98.50  err: 1.50
