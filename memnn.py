@@ -82,16 +82,16 @@ def init_param(emb):
 
 class MemNN(chainer.Chain):
 
-    def __init__(self, n_units, n_vocab):
+    def __init__(self, n_units, n_vocab, max_memory=15):
         super(MemNN, self).__init__(
             E1=L.EmbedID(n_vocab, n_units),  # encoder for inputs
             E2=L.EmbedID(n_vocab, n_units),  # encoder for inputs
             E3=L.EmbedID(n_vocab, n_units),  # encoder for inputs
             E4=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            T1=L.EmbedID(15, n_units),  # encoder for inputs
-            T2=L.EmbedID(15, n_units),  # encoder for inputs
-            T3=L.EmbedID(15, n_units),  # encoder for inputs
-            T4=L.EmbedID(15, n_units),  # encoder for inputs
+            T1=L.EmbedID(max_memory, n_units),  # encoder for inputs
+            T2=L.EmbedID(max_memory, n_units),  # encoder for inputs
+            T3=L.EmbedID(max_memory, n_units),  # encoder for inputs
+            T4=L.EmbedID(max_memory, n_units),  # encoder for inputs
             #B=L.EmbedID(n_vocab, n_units),  # encoder for queries
             #W=L.Linear(n_units, n_vocab),
         )
