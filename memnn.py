@@ -145,10 +145,8 @@ def proc(proc_data, batch_size, train=True):
 
         accum_loss = None
 
-        mem = xp.concatenate([mem.reshape((1, mem.shape[0],  mem.shape[1]))
-                              for mem, _, _ in batch_data])
-        query = xp.concatenate([query.reshape((1, query.shape[0]))
-                                for _, query, _ in batch_data])
+        mem = xp.concatenate([mem[None, :] for mem, _, _ in batch_data])
+        query = xp.concatenate([query[None, :] for _, query, _ in batch_data])
         answer = xp.array([answer for _, _, answer in batch_data], dtype=numpy.int32)
 
         model.register_all(mem, None)
