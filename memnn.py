@@ -16,9 +16,7 @@ def _encode(embed, sentences, length, position_encoding=False):
     e = embed(chainer.Variable(sentences))
     if position_encoding:
         ndim = e.data.ndim
-        n_batch = e.data.shape[0]
-        n_words = e.data.shape[1]
-        n_units = e.data.shape[2]
+        n_batch, n_words, n_units = e.data.shape[:3]
         length = length.reshape((n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
         k = xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units
         k = k.reshape((1,)*(ndim-2) +  (1, n_units))
@@ -49,14 +47,12 @@ class Memory(object):
     def query(self, u):
         m = self.m
         c = self.c
-        batch = m.data.shape[0]
-        size = m.data.shape[1]
-        inds, _ = xp.broadcast_arrays(
-            xp.arange(size, dtype=numpy.int32)[::-1],
-            xp.empty((batch, 1)))
-        inds = chainer.Variable(inds)
+        batch, size = m.data.shape[:2]
+        inds = chainer.Variable(xp.arange(size, dtype=numpy.int32)[::-1])
         tm = self.TA(inds)
         tc = self.TC(inds)
+        tm = F.broadcast_to(tm, (batch,) + tm.data.shape)
+        tc = F.broadcast_to(tc, (batch,) + tc.data.shape)
         p = F.softmax(F.batch_matmul(m + tm, u))
         o = F.batch_matmul(F.swapaxes(c + tc, 2, 1), p)
         o = F.reshape(o, (batch, m.data.shape[2]))
