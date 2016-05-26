@@ -13,7 +13,7 @@ import nlputil
 
 
 def _encode(embed, sentences, length, position_encoding=False):
-    e = embed(chainer.Variable(sentences))
+    e = embed(sentences)
     if position_encoding:
         ndim = e.data.ndim
         n_batch, n_words, n_units = e.data.shape[:3]
@@ -149,9 +149,11 @@ def proc(proc_data, batch_size, train=True):
         query = xp.concatenate([query[None, :] for _, query, _ in batch_data])
         answer = xp.array([answer for _, _, answer in batch_data], dtype=numpy.int32)
 
+        mem = chainer.Variable(mem)
         model.register_all(mem, None)
 
         y = chainer.Variable(answer)
+        query = chainer.Variable(query)
         loss, acc = model.query(query, None, y)
 
         if train:
