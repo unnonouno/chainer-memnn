@@ -98,11 +98,6 @@ class MemNN(chainer.Chain):
         for embed in [self.E1, self.E2, self.E3, self.E4]:
             embed.W.data[0, :] = 0
 
-    def register(self, sentence, lengths):
-        self.M1.register(sentence, lengths)
-        self.M2.register(sentence, lengths)
-        self.M3.register(sentence, lengths)
-
     def register_all(self, sentences, lengths):
         self.M1.register_all(sentences, lengths)
         self.M2.register_all(sentences, lengths)
