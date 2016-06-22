@@ -7,6 +7,7 @@ import numpy
 import chainer
 import chainer.functions as F
 import chainer.links as L
+from chainer import optimizers
 import cupy
 
 import nlputil
@@ -209,7 +210,6 @@ def convert_data(train_data, gpu):
 
 if __name__ == '__main__':
     import data
-    from chainer import optimizers
     vocab = nlputil.Vocabulary()
     data_dir = '/home/unno/qa/tasks_1-20_v1-2'
     data_type = 'en'
