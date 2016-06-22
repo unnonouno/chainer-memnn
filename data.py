@@ -16,20 +16,24 @@ def split(sentence):
     return sentence.lower().replace('.', '').replace('?', '').split()
 
 
+def convert(vocab, words):
+    return [vocab[w] for w in words]
+
+
 def parse_line(vocab, line):
     if '\t' in line:
         # question line
         question, answer, fact_id = line.split('\t')
-        aid = vocab.convert([answer], update=True)[0]
+        aid = convert(vocab, [answer])[0]
         words = split(question)
-        wid = vocab.convert(words, update=True)
+        wid = convert(vocab, words)
         ids = list(map(int, fact_id.split(' ')))
         return Query(wid, aid, ids)
 
     else:
         # sentence line
         words = split(line)
-        wid = vocab.convert(words, update=True)
+        wid = convert(vocab, words)
         return Sentence(wid)
 
 

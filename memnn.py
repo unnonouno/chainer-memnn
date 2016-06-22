@@ -1,3 +1,4 @@
+import collections
 import copy
 import glob
 import random
@@ -10,8 +11,6 @@ import chainer.links as L
 from chainer import optimizers
 import cupy
 
-import nlputil
-
 
 def _encode(embed, sentences, length, position_encoding=False):
     e = embed(sentences)
@@ -20,7 +19,7 @@ def _encode(embed, sentences, length, position_encoding=False):
         n_batch, n_words, n_units = e.data.shape[:3]
         length = length.reshape((n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
         k = xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units
-        k = k.reshape((1,)*(ndim-2) +  (1, n_units))
+        #k = k.reshape((1,)*(ndim-2) +  (1, n_units))
         i = xp.arange(1, n_words + 1, dtype=numpy.float32)
         i = i.reshape((1,)*(ndim-2) +  (n_words, 1))
         coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
@@ -205,7 +204,7 @@ def convert_data(train_data, gpu):
 
 if __name__ == '__main__':
     import data
-    vocab = nlputil.Vocabulary()
+    vocab = collections.defaultdict(lambda: len(vocab))
     data_dir = '/home/unno/qa/tasks_1-20_v1-2'
     data_type = 'en'
     for data_id in range(1, 21):
@@ -222,7 +221,7 @@ if __name__ == '__main__':
         train_data = convert_data(train_data, gpu)
         test_data = convert_data(test_data, gpu)
 
-        model = MemNN(20, vocab.size, 50)
+        model = MemNN(20, len(vocab), 50)
         opt = optimizers.Adam()
         #opt = optimizers.SGD(lr=0.01)
         #opt.add_hook(chainer.optimizer.GradientClipping(40))
