@@ -7,6 +7,7 @@ import numpy
 
 import chainer
 import chainer.functions as F
+from chainer import initializers
 import chainer.links as L
 from chainer import optimizers
 from chainer import training
@@ -62,27 +63,19 @@ class Memory(object):
         return u
 
 
-def init_params(*embs):
-    for emb in embs:
-        init_param(emb)
-
-
-def init_param(emb):
-    emb.W.data[:] = numpy.random.normal(0, 0.1, emb.W.data.shape)
-
-
 class MemNN(chainer.Chain):
 
     def __init__(self, n_units, n_vocab, max_memory=15):
+        normal = initializers.Normal()
         super(MemNN, self).__init__(
-            E1=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            E2=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            E3=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            E4=L.EmbedID(n_vocab, n_units),  # encoder for inputs
-            T1=L.EmbedID(max_memory, n_units),  # encoder for inputs
-            T2=L.EmbedID(max_memory, n_units),  # encoder for inputs
-            T3=L.EmbedID(max_memory, n_units),  # encoder for inputs
-            T4=L.EmbedID(max_memory, n_units),  # encoder for inputs
+            E1=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
+            E2=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
+            E3=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
+            E4=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
+            T1=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
+            T2=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
+            T3=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
+            T4=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
             #B=L.EmbedID(n_vocab, n_units),  # encoder for queries
             #W=L.Linear(n_units, n_vocab),
         )
@@ -91,9 +84,6 @@ class MemNN(chainer.Chain):
         self.M2 = Memory(self.E2, self.E3, self.T2, self.T3)
         self.M3 = Memory(self.E3, self.E4, self.T3, self.T4)
         self.B = self.E1
-
-        init_params(self.E1, self.E2, self.E3, self.E4,
-                    self.T1, self.T2, self.T3, self.T4)
 
     def fix_ignore_label(self):
         for embed in [self.E1, self.E2, self.E3, self.E4]:
