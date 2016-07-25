@@ -55,7 +55,7 @@ class Memory(object):
         m = self.m
         c = self.c
         batch, size = m.data.shape[:2]
-        inds = chainer.Variable(xp.arange(size, dtype=numpy.int32)[::-1])
+        inds = chainer.Variable(xp.arange(size-1, -1, -1, dtype=numpy.int32))
         tm = self.TA(inds)
         tc = self.TC(inds)
         tm = F.broadcast_to(tm, (batch,) + tm.data.shape)
