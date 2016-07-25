@@ -9,6 +9,8 @@ import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import optimizers
+from chainer import training
+from chainer.training import extensions
 import cupy
 
 
@@ -102,73 +104,19 @@ class MemNN(chainer.Chain):
         self.M2.register_all(sentences, lengths)
         self.M3.register_all(sentences, lengths)
 
-    def query(self, question, lengths, y):
+    def query(self, question, lengths):
         u = _encode(self.B, question, lengths)
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
         #a = self.W(u)
         a = F.linear(u, self.E4.W)
-        return F.softmax_cross_entropy(a, y), F.accuracy(a, y)
+        return a
 
-
-def make_batch_sentence(lines):
-    batch_size = len(lines)
-    max_sent_len = max(len(line.sentence) for line in lines)
-    # Fill zeros
-    ws = numpy.zeros((batch_size, max_sent_len), dtype=numpy.int32)
-    for i, line in enumerate(lines):
-        ws[i, 0:len(line.sentence)] = line.sentence
-    if xp is cupy:
-        ws = chainer.cuda.to_gpu(ws)
-
-    lengths = xp.array([len(line.sentence) for line in lines], dtype=numpy.int32)
-
-    return ws, lengths
-
-
-def proc(proc_data, batch_size, train=True):
-    total_loss = 0
-    total_acc = 0
-    count = 0
-
-    batch_size = min(batch_size, len(proc_data))
-
-    for begin in range(0, len(proc_data), batch_size):
-        end = min(len(proc_data), begin + batch_size)
-        batch_data = proc_data[begin:end]
-
-        accum_loss = None
-
-        mem = xp.concatenate([mem[None, :] for mem, _, _ in batch_data])
-        query = xp.concatenate([query[None, :] for _, query, _ in batch_data])
-        answer = xp.array([answer for _, _, answer in batch_data], dtype=numpy.int32)
-
-        mem = chainer.Variable(mem)
-        model.register_all(mem, None)
-
-        y = chainer.Variable(answer)
-        query = chainer.Variable(query)
-        loss, acc = model.query(query, None, y)
-
-        if train:
-            if accum_loss is None:
-                accum_loss = loss
-            else:
-                accum_loss += loss
-
-        total_loss += loss.data
-        total_acc += acc.data
-        count += 1
-
-        if accum_loss is not None:
-            model.zerograds()
-            accum_loss.backward()
-            opt.update()
-            model.fix_ignore_label()
-
-    #print('loss: %.4f\tacc: %.2f' % (float(total_loss), float(total_acc) / count * 100))
-    return float(total_acc) / count
+    def __call__(self, sentences, question):
+        self.register_all(sentences, None)
+        a = self.query(question, None)
+        return a
 
 
 def convert_data(train_data, gpu):
@@ -190,14 +138,9 @@ def convert_data(train_data, gpu):
             elif isinstance(sent, data.Query):
                 query = numpy.zeros(sentence_len, dtype=numpy.int32)
                 query[0:len(sent.sentence)] = sent.sentence
-                if gpu >= 0:
-                    d.append((chainer.cuda.to_gpu(mem),
-                              chainer.cuda.to_gpu(query),
-                              sent.answer))
-                else:
-                    d.append((copy.deepcopy(mem),
-                              (query),
-                              sent.answer))
+                d.append((copy.deepcopy(mem),
+                          (query),
+                          numpy.array(sent.answer, 'i')))
 
     return d
 
@@ -221,12 +164,11 @@ if __name__ == '__main__':
         train_data = convert_data(train_data, gpu)
         test_data = convert_data(test_data, gpu)
 
-        model = MemNN(20, len(vocab), 50)
+        memnn = MemNN(20, len(vocab), 50)
+        model = L.Classifier(memnn)
         opt = optimizers.Adam()
-        #opt = optimizers.SGD(lr=0.01)
-        #opt.add_hook(chainer.optimizer.GradientClipping(40))
         batch_size = 100
-        numpy.seterr('raise')
+
         if gpu >= 0:
             model.to_gpu()
             xp = cupy
@@ -234,15 +176,22 @@ if __name__ == '__main__':
             xp = numpy
         opt.setup(model)
 
-        for epoch in range(1000):
-            if isinstance(opt, optimizers.SGD) and epoch % 25 == 24:
-                opt.lr *= 0.5
-            #print(epoch)
+        train_iter = chainer.iterators.SerialIterator(train_data, batch_size)
+        test_iter = chainer.iterators.SerialIterator(test_data, batch_size,
+                                                     repeat=False, shuffle=False)
+        updater = training.StandardUpdater(train_iter, opt, device=gpu)
+        trainer = training.Trainer(updater, (100, 'epoch'))
 
-            random.shuffle(train_data)
-            proc(train_data, batch_size, train=True)
-            acc = proc(test_data, batch_size, train=False)
+        @training.make_extension()
+        def fix_ignore_label(trainer):
+            memnn.fix_ignore_label()
 
-        acc = acc * 100
-        err = 100 - acc
-        print('%d: acc: %.2f\terr: %.2f' % (data_id, acc, err))
+        print(fix_ignore_label.default_name)
+        trainer.extend(fix_ignore_label)
+        trainer.extend(extensions.Evaluator(test_iter, model, device=gpu))
+        trainer.extend(extensions.LogReport())
+        trainer.extend(extensions.PrintReport(
+            ['epoch', 'main/loss', 'validation/main/loss',
+             'main/accuracy', 'validation/main/accuracy']))
+        trainer.extend(extensions.ProgressBar(update_interval=10))
+        trainer.run()
