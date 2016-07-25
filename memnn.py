@@ -186,7 +186,6 @@ if __name__ == '__main__':
         def fix_ignore_label(trainer):
             memnn.fix_ignore_label()
 
-        print(fix_ignore_label.default_name)
         trainer.extend(fix_ignore_label)
         trainer.extend(extensions.Evaluator(test_iter, model, device=gpu))
         trainer.extend(extensions.LogReport())
