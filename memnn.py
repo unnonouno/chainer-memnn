@@ -109,8 +109,8 @@ class MemNN(chainer.Chain):
         return a
 
 
-def convert_data(train_data, gpu):
-    d = []
+def convert_data(train_data):
+    tuples = []
     sentence_len = max(max(len(s.sentence) for s in story) for story in train_data)
     for story in train_data:
         mem = numpy.zeros((50, sentence_len), dtype=numpy.int32)
@@ -128,11 +128,11 @@ def convert_data(train_data, gpu):
             elif isinstance(sent, data.Query):
                 query = numpy.zeros(sentence_len, dtype=numpy.int32)
                 query[0:len(sent.sentence)] = sent.sentence
-                d.append((copy.deepcopy(mem),
-                          (query),
-                          numpy.array(sent.answer, 'i')))
+                tuples.append((copy.deepcopy(mem),
+                               (query),
+                               numpy.array(sent.answer, 'i')))
 
-    return d
+    return tuples
 
 
 if __name__ == '__main__':
@@ -151,8 +151,8 @@ if __name__ == '__main__':
         print('Training data: %d' % len(train_data))
 
         gpu = 0
-        train_data = convert_data(train_data, gpu)
-        test_data = convert_data(test_data, gpu)
+        train_data = convert_data(train_data)
+        test_data = convert_data(test_data)
 
         memnn = MemNN(20, len(vocab), 50)
         model = L.Classifier(memnn)
