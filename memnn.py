@@ -58,7 +58,7 @@ class Memory(object):
         tc = F.broadcast_to(tc, (batch,) + tc.data.shape)
         p = F.softmax(F.batch_matmul(m + tm, u))
         o = F.batch_matmul(F.swapaxes(c + tc, 2, 1), p)
-        o = F.reshape(o, (batch, m.data.shape[2]))
+        o = o[:, :, 0]
         u = o + u
         return u
 
