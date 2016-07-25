@@ -7,16 +7,18 @@ import random
 import numpy
 
 import chainer
+from chainer import cuda
 import chainer.functions as F
 from chainer import initializers
 import chainer.links as L
 from chainer import optimizers
 from chainer import training
 from chainer.training import extensions
-import cupy
 
 
 def _encode(embed, sentences, length, position_encoding=False):
+    xp = cuda.get_array_module(sentences.data)
+
     e = embed(sentences)
     if position_encoding:
         ndim = e.data.ndim
@@ -49,6 +51,7 @@ class Memory(object):
         self.m, self.c = self.encode(sentences, lengths)
 
     def query(self, u):
+        xp = cuda.get_array_module(u.data)
         m = self.m
         c = self.c
         batch, size = m.data.shape[:2]
@@ -172,9 +175,7 @@ if __name__ == '__main__':
         if args.gpu >= 0:
             chainer.cuda.get_device(args.gpu).use()
             model.to_gpu()
-            xp = cupy
-        else:
-            xp = numpy
+
         opt.setup(model)
 
         train_iter = chainer.iterators.SerialIterator(train_data, args.batchsize)
