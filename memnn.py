@@ -2,7 +2,6 @@ import argparse
 import collections
 import copy
 import glob
-import random
 
 import numpy
 
@@ -23,11 +22,12 @@ def _encode(embed, sentences, length, position_encoding=False):
     if position_encoding:
         ndim = e.data.ndim
         n_batch, n_words, n_units = e.data.shape[:3]
-        length = length.reshape((n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
+        length = length.reshape(
+            (n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
         k = xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units
-        #k = k.reshape((1,)*(ndim-2) +  (1, n_units))
+        # k = k.reshape((1,)*(ndim-2) +  (1, n_units))
         i = xp.arange(1, n_words + 1, dtype=numpy.float32)
-        i = i.reshape((1,)*(ndim-2) +  (n_words, 1))
+        i = i.reshape((1,) * (ndim - 2) + (n_words, 1))
         coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
         e = chainer.Variable(coeff, volatile='auto') * e
     s = F.sum(e, axis=-2)
@@ -73,16 +73,16 @@ class MemNN(chainer.Chain):
     def __init__(self, n_units, n_vocab, max_memory=15):
         normal = initializers.Normal()
         super(MemNN, self).__init__(
-            E1=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
-            E2=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
-            E3=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
-            E4=L.EmbedID(n_vocab, n_units, initialW=normal),  # encoder for inputs
-            T1=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
-            T2=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
-            T3=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
-            T4=L.EmbedID(max_memory, n_units, initialW=normal),  # encoder for inputs
-            #B=L.EmbedID(n_vocab, n_units),  # encoder for queries
-            #W=L.Linear(n_units, n_vocab),
+            E1=L.EmbedID(n_vocab, n_units, initialW=normal),
+            E2=L.EmbedID(n_vocab, n_units, initialW=normal),
+            E3=L.EmbedID(n_vocab, n_units, initialW=normal),
+            E4=L.EmbedID(n_vocab, n_units, initialW=normal),
+            T1=L.EmbedID(max_memory, n_units, initialW=normal),
+            T2=L.EmbedID(max_memory, n_units, initialW=normal),
+            T3=L.EmbedID(max_memory, n_units, initialW=normal),
+            T4=L.EmbedID(max_memory, n_units, initialW=normal),
+            # B=L.EmbedID(n_vocab, n_units),
+            # W=L.Linear(n_units, n_vocab),
         )
 
         self.M1 = Memory(self.E1, self.E2, self.T1, self.T2)
@@ -104,7 +104,7 @@ class MemNN(chainer.Chain):
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
-        #a = self.W(u)
+        # a = self.W(u)
         a = F.linear(u, self.E4.W)
         return a
 
@@ -116,7 +116,8 @@ class MemNN(chainer.Chain):
 
 def convert_data(train_data):
     tuples = []
-    sentence_len = max(max(len(s.sentence) for s in story) for story in train_data)
+    sentence_len = max(max(len(s.sentence) for s in story)
+                       for story in train_data)
     for story in train_data:
         mem = numpy.zeros((50, sentence_len), dtype=numpy.int32)
         mem_length = numpy.zeros((50,), dtype=numpy.int32)
@@ -124,8 +125,8 @@ def convert_data(train_data):
         for sent in story:
             if isinstance(sent, data.Sentence):
                 if i == 50:
-                    mem[0:i-1, :] = mem[1:i, :]
-                    mem_length[0:i-1] = mem_length[1:i]
+                    mem[0:i - 1, :] = mem[1:i, :]
+                    mem_length[0:i - 1] = mem_length[1:i]
                     i -= 1
                 mem[i, 0:len(sent.sentence)] = sent.sentence
                 mem_length[i] = len(sent.sentence)
@@ -141,7 +142,8 @@ def convert_data(train_data):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Chainer example: End-to-end memory networks')
+    parser = argparse.ArgumentParser(
+        description='Chainer example: End-to-end memory networks')
     parser.add_argument('data', help='Path to bAbI dataset')
     parser.add_argument('--batchsize', '-b', type=int, default=100,
                         help='Number of images in each mini batch')
@@ -179,9 +181,10 @@ if __name__ == '__main__':
 
         opt.setup(model)
 
-        train_iter = chainer.iterators.SerialIterator(train_data, args.batchsize)
-        test_iter = chainer.iterators.SerialIterator(test_data, args.batchsize,
-                                                     repeat=False, shuffle=False)
+        train_iter = chainer.iterators.SerialIterator(
+            train_data, args.batchsize)
+        test_iter = chainer.iterators.SerialIterator(
+            test_data, args.batchsize, repeat=False, shuffle=False)
         updater = training.StandardUpdater(train_iter, opt, device=args.gpu)
         trainer = training.Trainer(updater, (args.epoch, 'epoch'))
 
