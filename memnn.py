@@ -29,7 +29,7 @@ def _encode(embed, sentences, length, position_encoding=False):
         i = xp.arange(1, n_words + 1, dtype=numpy.float32)
         i = i.reshape((1,)*(ndim-2) +  (n_words, 1))
         coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
-        e = chainer.Variable(coeff) * e
+        e = chainer.Variable(coeff, volatile='auto') * e
     s = F.sum(e, axis=-2)
     return s
 
@@ -55,7 +55,8 @@ class Memory(object):
         m = self.m
         c = self.c
         batch, size = m.data.shape[:2]
-        inds = chainer.Variable(xp.arange(size-1, -1, -1, dtype=numpy.int32))
+        inds = chainer.Variable(
+            xp.arange(size - 1, -1, -1, dtype=numpy.int32), volatile='auto')
         tm = self.TA(inds)
         tc = self.TC(inds)
         tm = F.broadcast_to(tm, (batch,) + tm.data.shape)
