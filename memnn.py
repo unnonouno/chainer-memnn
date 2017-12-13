@@ -16,11 +16,11 @@ from chainer.training import extensions
 
 
 def _encode(embed, sentences, length, position_encoding=False):
-    xp = cuda.get_array_module(sentences.data)
+    xp = cuda.get_array_module(sentences)
 
     e = embed(sentences)
     if position_encoding:
-        ndim = e.data.ndim
+        ndim = e.ndim
         n_batch, n_words, n_units = e.shape[:3]
         length = length.reshape(
             (n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
@@ -51,7 +51,7 @@ class Memory(object):
         self.m, self.c = self.encode(sentences, lengths)
 
     def query(self, u):
-        xp = cuda.get_array_module(u.data)
+        xp = cuda.get_array_module(u)
         m = self.m
         c = self.c
         batch, size = m.shape[:2]
