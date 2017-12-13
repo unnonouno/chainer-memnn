@@ -21,7 +21,7 @@ def _encode(embed, sentences, length, position_encoding=False):
     e = embed(sentences)
     if position_encoding:
         ndim = e.data.ndim
-        n_batch, n_words, n_units = e.data.shape[:3]
+        n_batch, n_words, n_units = e.shape[:3]
         length = length.reshape(
             (n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
         k = xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units
@@ -54,12 +54,12 @@ class Memory(object):
         xp = cuda.get_array_module(u.data)
         m = self.m
         c = self.c
-        batch, size = m.data.shape[:2]
+        batch, size = m.shape[:2]
         inds = xp.arange(size - 1, -1, -1, dtype=numpy.int32)
         tm = self.TA(inds)
         tc = self.TC(inds)
-        tm = F.broadcast_to(tm, (batch,) + tm.data.shape)
-        tc = F.broadcast_to(tc, (batch,) + tc.data.shape)
+        tm = F.broadcast_to(tm, (batch,) + tm.shape)
+        tc = F.broadcast_to(tc, (batch,) + tc.shape)
         p = F.softmax(F.batch_matmul(m + tm, u))
         o = F.batch_matmul(F.swapaxes(c + tc, 2, 1), p)
         o = o[:, :, 0]
