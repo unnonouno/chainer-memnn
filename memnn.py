@@ -70,19 +70,19 @@ class Memory(object):
 class MemNN(chainer.Chain):
 
     def __init__(self, n_units, n_vocab, max_memory=15):
+        super(MemNN, self).__init__()
         normal = initializers.Normal()
-        super(MemNN, self).__init__(
-            E1=L.EmbedID(n_vocab, n_units, initialW=normal),
-            E2=L.EmbedID(n_vocab, n_units, initialW=normal),
-            E3=L.EmbedID(n_vocab, n_units, initialW=normal),
-            E4=L.EmbedID(n_vocab, n_units, initialW=normal),
-            T1=L.EmbedID(max_memory, n_units, initialW=normal),
-            T2=L.EmbedID(max_memory, n_units, initialW=normal),
-            T3=L.EmbedID(max_memory, n_units, initialW=normal),
-            T4=L.EmbedID(max_memory, n_units, initialW=normal),
-            # B=L.EmbedID(n_vocab, n_units),
-            # W=L.Linear(n_units, n_vocab),
-        )
+        with self.init_scope():
+            self.E1 = L.EmbedID(n_vocab, n_units, initialW=normal)
+            self.E2 = L.EmbedID(n_vocab, n_units, initialW=normal)
+            self.E3 = L.EmbedID(n_vocab, n_units, initialW=normal)
+            self.E4 = L.EmbedID(n_vocab, n_units, initialW=normal)
+            self.T1 = L.EmbedID(max_memory, n_units, initialW=normal)
+            self.T2 = L.EmbedID(max_memory, n_units, initialW=normal)
+            self.T3 = L.EmbedID(max_memory, n_units, initialW=normal)
+            self.T4 = L.EmbedID(max_memory, n_units, initialW=normal)
+            # self.B = L.EmbedID(n_vocab, n_units)
+            # self.W = L.Linear(n_units, n_vocab)
 
         self.M1 = Memory(self.E1, self.E2, self.T1, self.T2)
         self.M2 = Memory(self.E2, self.E3, self.T2, self.T3)
