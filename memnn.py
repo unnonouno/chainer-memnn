@@ -2,6 +2,7 @@ import argparse
 import collections
 import copy
 import glob
+import sys
 
 import numpy
 
@@ -15,11 +16,51 @@ from chainer import training
 from chainer.training import extensions
 
 
-def _encode(embed, sentences, position_encoding=True):
-    xp = cuda.get_array_module(sentences)
+class BoWEncoder(object):
 
-    e = embed(sentences)
-    if position_encoding:
+    """BoW sentence encoder.
+
+    It is defined as:
+
+    .. math::
+
+       m = \sum_j A x_j,
+
+    where :math:`A` is an embed matrix, and :math:`x_j` is :math:`j`-th word ID.
+
+    """
+
+    def __call__(self, embed, sentences):
+        xp = cuda.get_array_module(sentences)
+        e = embed(sentences)
+        s = F.sum(e, axis=-2)
+        return s
+
+
+class PositionEncoder(object):
+
+    """Position encoding.
+
+    It is defined as:
+
+    .. math::
+
+       m = \sum_j l_j A x_j,
+
+    where :math:`A` is an embed matrix, :math:`x_j` is :math:`j`-th word ID and
+
+    .. math::
+
+       l_{kj} = (1 - j / J) - (k / d)(1 - 2j / J).
+
+    :math:`J` is length of a sentence and :math:`d` is the dimension of the
+    embedding.
+
+    """
+
+    def __call__(self, embed, sentences):
+        xp = cuda.get_array_module(sentences)
+        e = embed(sentences)
         ndim = e.ndim
         n_words, n_units = e.shape[-2:]
         length = xp.maximum(
@@ -29,21 +70,22 @@ def _encode(embed, sentences, position_encoding=True):
         i = xp.arange(1, n_words + 1, dtype=numpy.float32)[:, None]
         coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
         e = coeff * e
-    s = F.sum(e, axis=-2)
-    return s
+        s = F.sum(e, axis=-2)
+        return s
 
 
 class Memory(object):
 
-    def __init__(self, A, C, TA, TC):
+    def __init__(self, A, C, TA, TC, encoder):
         self.A = A
         self.C = C
         self.TA = TA
         self.TC = TC
+        self.encoder = encoder
 
     def encode(self, sentence):
-        mi = _encode(self.A, sentence)
-        ci = _encode(self.C, sentence)
+        mi = self.encoder(self.A, sentence)
+        ci = self.encoder(self.C, sentence)
         return mi, ci
 
     def register_all(self, sentences):
@@ -68,7 +110,7 @@ class Memory(object):
 
 class MemNN(chainer.Chain):
 
-    def __init__(self, n_units, n_vocab, max_memory=15):
+    def __init__(self, n_units, n_vocab, encoder, max_memory=15):
         super(MemNN, self).__init__()
         normal = initializers.Normal()
         with self.init_scope():
@@ -83,10 +125,12 @@ class MemNN(chainer.Chain):
             # self.B = L.EmbedID(n_vocab, n_units)
             # self.W = L.Linear(n_units, n_vocab)
 
-        self.M1 = Memory(self.E1, self.E2, self.T1, self.T2)
-        self.M2 = Memory(self.E2, self.E3, self.T2, self.T3)
-        self.M3 = Memory(self.E3, self.E4, self.T3, self.T4)
+        self.M1 = Memory(self.E1, self.E2, self.T1, self.T2, encoder)
+        self.M2 = Memory(self.E2, self.E3, self.T2, self.T3, encoder)
+        self.M3 = Memory(self.E3, self.E4, self.T3, self.T4, encoder)
         self.B = self.E1
+
+        self.encoder = encoder
 
     def fix_ignore_label(self):
         for embed in [self.E1, self.E2, self.E3, self.E4]:
@@ -98,7 +142,7 @@ class MemNN(chainer.Chain):
         self.M3.register_all(sentences)
 
     def query(self, question):
-        u = _encode(self.B, question)
+        u = self.encoder(self.B, question)
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
@@ -150,6 +194,10 @@ if __name__ == '__main__':
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--unit', '-u', type=int, default=20,
                         help='Number of units')
+    parser.add_argument('--sentence-repr',
+                        choices=['bow', 'pe'], default='bow',
+                        help='Sentence representation. '
+                        'Select from BoW ("bow") or position encoding ("pe")')
     args = parser.parse_args()
 
     import data
@@ -169,7 +217,15 @@ if __name__ == '__main__':
         train_data = convert_data(train_data)
         test_data = convert_data(test_data)
 
-        memnn = MemNN(args.unit, len(vocab), 50)
+        if args.sentence_repr == 'bow':
+            encoder = BoWEncoder()
+        elif args.sentence_repr == 'pe':
+            encoder = PositionEncoder()
+        else:
+            print('Unknonw --sentence-repr option: "%s"' % args.sentence_repr)
+            sys.exit(1)
+
+        memnn = MemNN(args.unit, len(vocab), encoder, 50)
         model = L.Classifier(memnn, label_key='answer')
         opt = optimizers.Adam()
 
