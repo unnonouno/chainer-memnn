@@ -15,19 +15,18 @@ from chainer import training
 from chainer.training import extensions
 
 
-def _encode(embed, sentences, length, position_encoding=False):
+def _encode(embed, sentences, position_encoding=True):
     xp = cuda.get_array_module(sentences)
 
     e = embed(sentences)
     if position_encoding:
         ndim = e.ndim
-        n_batch, n_words, n_units = e.shape[:3]
-        length = length.reshape(
-            (n_batch,) + (1,) * (ndim - 1)).astype(numpy.float32)
+        n_words, n_units = e.shape[-2:]
+        length = xp.maximum(
+            xp.sum((sentences != 0).astype('f'), axis=-1), 1)
+        length = length.reshape((length.shape + (1, 1)))
         k = xp.arange(1, n_units + 1, dtype=numpy.float32) / n_units
-        # k = k.reshape((1,)*(ndim-2) +  (1, n_units))
-        i = xp.arange(1, n_words + 1, dtype=numpy.float32)
-        i = i.reshape((1,) * (ndim - 2) + (n_words, 1))
+        i = xp.arange(1, n_words + 1, dtype=numpy.float32)[:, None]
         coeff = (1 - i / length) - k * (1 - 2.0 * i / length)
         e = coeff * e
     s = F.sum(e, axis=-2)
@@ -42,13 +41,13 @@ class Memory(object):
         self.TA = TA
         self.TC = TC
 
-    def encode(self, sentence, lengths):
-        mi = _encode(self.A, sentence, lengths)
-        ci = _encode(self.C, sentence, lengths)
+    def encode(self, sentence):
+        mi = _encode(self.A, sentence)
+        ci = _encode(self.C, sentence)
         return mi, ci
 
-    def register_all(self, sentences, lengths=None):
-        self.m, self.c = self.encode(sentences, lengths)
+    def register_all(self, sentences):
+        self.m, self.c = self.encode(sentences)
 
     def query(self, u):
         xp = cuda.get_array_module(u)
@@ -93,13 +92,13 @@ class MemNN(chainer.Chain):
         for embed in [self.E1, self.E2, self.E3, self.E4]:
             embed.W.data[0, :] = 0
 
-    def register_all(self, sentences, lengths):
-        self.M1.register_all(sentences, lengths)
-        self.M2.register_all(sentences, lengths)
-        self.M3.register_all(sentences, lengths)
+    def register_all(self, sentences):
+        self.M1.register_all(sentences)
+        self.M2.register_all(sentences)
+        self.M3.register_all(sentences)
 
-    def query(self, question, lengths):
-        u = _encode(self.B, question, lengths)
+    def query(self, question):
+        u = _encode(self.B, question)
         u = self.M1.query(u)
         u = self.M2.query(u)
         u = self.M3.query(u)
@@ -108,8 +107,8 @@ class MemNN(chainer.Chain):
         return a
 
     def __call__(self, sentences, question):
-        self.register_all(sentences, None)
-        a = self.query(question, None)
+        self.register_all(sentences)
+        a = self.query(question)
         return a
 
 
