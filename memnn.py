@@ -220,7 +220,6 @@ def main():
                         'Select from BoW ("bow") or position encoding ("pe")')
     args = parser.parse_args()
 
-    import data
     vocab = collections.defaultdict(lambda: len(vocab))
     vocab['<unk>'] = 0
 
