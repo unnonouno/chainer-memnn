@@ -88,26 +88,20 @@ class Memory(object):
         self.TC = TC
         self.encoder = encoder
 
-    def encode(self, sentence):
-        mi = self.encoder(self.A, sentence)
-        ci = self.encoder(self.C, sentence)
-        return mi, ci
-
     def register_all(self, sentences):
-        self.m, self.c = self.encode(sentences)
+        self.m = self.encoder(self.A, sentences)
+        self.c = self.encoder(self.C, sentences)
 
     def query(self, u):
         xp = cuda.get_array_module(u)
-        m = self.m
-        c = self.c
-        batch, size = m.shape[:2]
+        size = self.m.shape[1]
         inds = xp.arange(size - 1, -1, -1, dtype=numpy.int32)
         tm = self.TA(inds)
         tc = self.TC(inds)
-        tm = F.broadcast_to(tm, m.shape)
-        tc = F.broadcast_to(tc, c.shape)
-        p = F.softmax(F.batch_matmul(m + tm, u))
-        o = F.batch_matmul(F.swapaxes(c + tc, 2, 1), p)
+        tm = F.broadcast_to(tm, self.m.shape)
+        tc = F.broadcast_to(tc, self.c.shape)
+        p = F.softmax(F.batch_matmul(self.m + tm, u))
+        o = F.batch_matmul(F.swapaxes(self.c + tc, 2, 1), p)
         o = F.squeeze(o, -1)
         u = o + u
         return u
