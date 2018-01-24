@@ -103,11 +103,11 @@ class Memory(object):
         inds = xp.arange(size - 1, -1, -1, dtype=numpy.int32)
         tm = self.TA(inds)
         tc = self.TC(inds)
-        tm = F.broadcast_to(tm, (batch,) + tm.shape)
-        tc = F.broadcast_to(tc, (batch,) + tc.shape)
+        tm = F.broadcast_to(tm, m.shape)
+        tc = F.broadcast_to(tc, c.shape)
         p = F.softmax(F.batch_matmul(m + tm, u))
         o = F.batch_matmul(F.swapaxes(c + tc, 2, 1), p)
-        o = o[:, :, 0]
+        o = F.squeeze(o, -1)
         u = o + u
         return u
 
