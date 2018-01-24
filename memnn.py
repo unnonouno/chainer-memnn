@@ -81,6 +81,21 @@ class PositionEncoder(object):
 
 class Memory(object):
 
+    """Memory component in a memory network.
+
+    Args:
+        A (chainer.links.EmbedID): Embed matrix for input. Its shape is
+            ``(n_vocab, n_units)``.
+        C (chainer.links.EmbedID): Embed matrix for output. Its shape is
+            ``(n_vocab, n_units)``.
+        TA (chainer.links.EmbedID): Embed matrix for temporal encoding for
+            input. Its shape is ``(max_memory, n_units)``.
+        TC (chainer.links.EmbedID): Embed matrix for temporal encoding for
+            output. Its shape is ``(max_memory, n_units)``.
+        encoder (callable): It encodes given stentences to embed vectors.
+
+    """
+
     def __init__(self, A, C, TA, TC, encoder):
         self.A = A
         self.C = C
