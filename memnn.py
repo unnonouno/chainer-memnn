@@ -113,7 +113,7 @@ class MemNN(chainer.Chain):
 
 
 def convert_data(train_data):
-    data = []
+    all_data = []
     sentence_len = max(max(len(s.sentence) for s in story)
                        for story in train_data)
     for story in train_data:
@@ -129,13 +129,13 @@ def convert_data(train_data):
             elif isinstance(sent, data.Query):
                 query = numpy.zeros(sentence_len, dtype=numpy.int32)
                 query[0:len(sent.sentence)] = sent.sentence
-                data.append({
+                all_data.append({
                     'sentences': mem.copy(),
                     'question': query,
                     'answer': numpy.array(sent.answer, 'i'),
                 })
 
-    return data
+    return all_data
 
 
 if __name__ == '__main__':
