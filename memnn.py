@@ -5,6 +5,7 @@ import glob
 import sys
 
 import numpy
+import six
 
 import chainer
 from chainer import cuda
@@ -111,47 +112,49 @@ class Memory(object):
         u = o + u
         return u
 
-
 class MemNN(chainer.Chain):
 
-    def __init__(self, n_units, n_vocab, encoder, max_memory=15):
+    def __init__(self, n_units, n_vocab, encoder, max_memory=15, hops=3):
         super(MemNN, self).__init__()
         normal = initializers.Normal()
         with self.init_scope():
-            self.E1 = L.EmbedID(n_vocab, n_units, initialW=normal)
-            self.E2 = L.EmbedID(n_vocab, n_units, initialW=normal)
-            self.E3 = L.EmbedID(n_vocab, n_units, initialW=normal)
-            self.E4 = L.EmbedID(n_vocab, n_units, initialW=normal)
-            self.T1 = L.EmbedID(max_memory, n_units, initialW=normal)
-            self.T2 = L.EmbedID(max_memory, n_units, initialW=normal)
-            self.T3 = L.EmbedID(max_memory, n_units, initialW=normal)
-            self.T4 = L.EmbedID(max_memory, n_units, initialW=normal)
-            # self.B = L.EmbedID(n_vocab, n_units)
-            # self.W = L.Linear(n_units, n_vocab)
+            self.embeds = chainer.ChainList()
+            self.temporals = chainer.ChainList()
 
-        self.M1 = Memory(self.E1, self.E2, self.T1, self.T2, encoder)
-        self.M2 = Memory(self.E2, self.E3, self.T2, self.T3, encoder)
-        self.M3 = Memory(self.E3, self.E4, self.T3, self.T4, encoder)
-        self.B = self.E1
+        # Shares both embeded matrixes in adjacent layres
+        for _ in six.moves.range(hops + 1):
+            self.embeds.append(L.EmbedID(n_vocab, n_units, initialW=normal))
+            self.temporals.append(
+                L.EmbedID(max_memory, n_units, initialW=normal))
+
+        self.memories = [
+            Memory(self.embeds[i], self.embeds[i + 1],
+                   self.temporals[i], self.temporals[i + 1], encoder)
+            for i in six.moves.range(hops)
+        ]
+        self.B = self.embeds[0]
+
+        # self.B = L.EmbedID(n_vocab, n_units)
+        # self.W = L.Linear(n_units, n_vocab)
 
         self.encoder = encoder
 
     def fix_ignore_label(self):
-        for embed in [self.E1, self.E2, self.E3, self.E4]:
+        for embed in self.embeds:
             embed.W.data[0, :] = 0
 
     def register_all(self, sentences):
-        self.M1.register_all(sentences)
-        self.M2.register_all(sentences)
-        self.M3.register_all(sentences)
+        for memory in self.memories:
+            memory.register_all(sentences)
+
+    def W(self, u):
+        return F.linear(u, self.embeds[-1].W)
 
     def query(self, question):
         u = self.encoder(self.B, question)
-        u = self.M1.query(u)
-        u = self.M2.query(u)
-        u = self.M3.query(u)
-        # a = self.W(u)
-        a = F.linear(u, self.E4.W)
+        for memory in self.memories:
+            u = memory.query(u)
+        a = self.W(u)
         return a
 
     def __call__(self, sentences, question):
@@ -198,6 +201,8 @@ if __name__ == '__main__':
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--unit', '-u', type=int, default=20,
                         help='Number of units')
+    parser.add_argument('--hop', '-H', type=int, default=3,
+                        help='Number of hops')
     parser.add_argument('--sentence-repr',
                         choices=['bow', 'pe'], default='bow',
                         help='Sentence representation. '
@@ -229,7 +234,7 @@ if __name__ == '__main__':
             print('Unknonw --sentence-repr option: "%s"' % args.sentence_repr)
             sys.exit(1)
 
-        memnn = MemNN(args.unit, len(vocab), encoder, 50)
+        memnn = MemNN(args.unit, len(vocab), encoder, 50, args.hop)
         model = L.Classifier(memnn, label_key='answer')
         opt = optimizers.Adam()
 
