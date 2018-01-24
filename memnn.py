@@ -16,6 +16,8 @@ from chainer import optimizers
 from chainer import training
 from chainer.training import extensions
 
+import babi
+
 
 class BoWEncoder(object):
 
@@ -180,13 +182,13 @@ def convert_data(train_data):
         mem = numpy.zeros((50, sentence_len), dtype=numpy.int32)
         i = 0
         for sent in story:
-            if isinstance(sent, data.Sentence):
+            if isinstance(sent, babi.Sentence):
                 if i == 50:
                     mem[0:i - 1, :] = mem[1:i, :]
                     i -= 1
                 mem[i, 0:len(sent.sentence)] = sent.sentence
                 i += 1
-            elif isinstance(sent, data.Query):
+            elif isinstance(sent, babi.Query):
                 query = numpy.zeros(sentence_len, dtype=numpy.int32)
                 query[0:len(sent.sentence)] = sent.sentence
                 all_data.append({
@@ -198,7 +200,7 @@ def convert_data(train_data):
     return all_data
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         description='Chainer example: End-to-end memory networks')
     parser.add_argument('data', help='Path to bAbI dataset')
@@ -224,10 +226,10 @@ if __name__ == '__main__':
 
     for data_id in range(1, 21):
 
-        train_data = data.read_data(
+        train_data = babi.read_data(
             vocab,
             glob.glob('%s/qa%d_*train.txt' % (args.data, data_id))[0])
-        test_data = data.read_data(
+        test_data = babi.read_data(
             vocab,
             glob.glob('%s/qa%d_*test.txt' % (args.data, data_id))[0])
         print('Training data: %d' % len(train_data))
@@ -272,3 +274,7 @@ if __name__ == '__main__':
              'main/accuracy', 'validation/main/accuracy']))
         trainer.extend(extensions.ProgressBar(update_interval=10))
         trainer.run()
+
+
+if __name__ == '__main__':
+    main()
