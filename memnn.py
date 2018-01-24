@@ -126,7 +126,7 @@ class Memory(object):
 
 class MemNN(chainer.Chain):
 
-    def __init__(self, n_units, n_vocab, encoder, max_memory=15, hops=3):
+    def __init__(self, n_units, n_vocab, encoder, max_memory, hops):
         super(MemNN, self).__init__()
 
         with self.init_scope():
@@ -174,16 +174,16 @@ class MemNN(chainer.Chain):
         return a
 
 
-def convert_data(train_data):
+def convert_data(train_data, max_memory):
     all_data = []
     sentence_len = max(max(len(s.sentence) for s in story)
                        for story in train_data)
     for story in train_data:
-        mem = numpy.zeros((50, sentence_len), dtype=numpy.int32)
+        mem = numpy.zeros((max_memory, sentence_len), dtype=numpy.int32)
         i = 0
         for sent in story:
             if isinstance(sent, babi.Sentence):
-                if i == 50:
+                if i == max_memory:
                     mem[0:i - 1, :] = mem[1:i, :]
                     i -= 1
                 mem[i, 0:len(sent.sentence)] = sent.sentence
@@ -214,6 +214,8 @@ def main():
                         help='Number of units')
     parser.add_argument('--hop', '-H', type=int, default=3,
                         help='Number of hops')
+    parser.add_argument('--max-memory', type=int, default=50,
+                        help='Maximum number of memory')
     parser.add_argument('--sentence-repr',
                         choices=['bow', 'pe'], default='bow',
                         help='Sentence representation. '
@@ -233,8 +235,8 @@ def main():
             glob.glob('%s/qa%d_*test.txt' % (args.data, data_id))[0])
         print('Training data: %d' % len(train_data))
 
-        train_data = convert_data(train_data)
-        test_data = convert_data(test_data)
+        train_data = convert_data(train_data, args.max_memory)
+        test_data = convert_data(test_data, args.max_memory)
 
         if args.sentence_repr == 'bow':
             encoder = BoWEncoder()
@@ -244,7 +246,7 @@ def main():
             print('Unknonw --sentence-repr option: "%s"' % args.sentence_repr)
             sys.exit(1)
 
-        memnn = MemNN(args.unit, len(vocab), encoder, 50, args.hop)
+        memnn = MemNN(args.unit, len(vocab), encoder, args.max_memory, args.hop)
         model = L.Classifier(memnn, label_key='answer')
         opt = optimizers.Adam()
 
