@@ -156,6 +156,7 @@ if __name__ == '__main__':
 
     import data
     vocab = collections.defaultdict(lambda: len(vocab))
+    vocab['<unk>'] = 0
 
     for data_id in range(1, 21):
 
