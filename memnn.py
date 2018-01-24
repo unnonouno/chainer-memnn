@@ -121,15 +121,17 @@ class Memory(object):
         u = o + u
         return u
 
+
 class MemNN(chainer.Chain):
 
     def __init__(self, n_units, n_vocab, encoder, max_memory=15, hops=3):
         super(MemNN, self).__init__()
-        normal = initializers.Normal()
+
         with self.init_scope():
             self.embeds = chainer.ChainList()
             self.temporals = chainer.ChainList()
 
+        normal = initializers.Normal()
         # Shares both embeded matrixes in adjacent layres
         for _ in six.moves.range(hops + 1):
             self.embeds.append(L.EmbedID(n_vocab, n_units, initialW=normal))
@@ -141,10 +143,11 @@ class MemNN(chainer.Chain):
                    self.temporals[i], self.temporals[i + 1], encoder)
             for i in six.moves.range(hops)
         ]
+        # The question embedding is same as the input embedding of the
+        # first layer
         self.B = self.embeds[0]
-
-        # self.B = L.EmbedID(n_vocab, n_units)
-        # self.W = L.Linear(n_units, n_vocab)
+        # The answer prediction matrix W is same as the final output layer
+        self.W = lambda u: F.linear(u, self.embeds[-1].W)
 
         self.encoder = encoder
 
@@ -155,9 +158,6 @@ class MemNN(chainer.Chain):
     def register_all(self, sentences):
         for memory in self.memories:
             memory.register_all(sentences)
-
-    def W(self, u):
-        return F.linear(u, self.embeds[-1].W)
 
     def query(self, question):
         u = self.encoder(self.B, question)
