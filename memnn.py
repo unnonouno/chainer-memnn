@@ -63,6 +63,10 @@ class PositionEncoder(object):
         e = embed(sentences)
         ndim = e.ndim
         n_words, n_units = e.shape[-2:]
+
+        # To avoid 0/0, we use max(length, 1) here.
+        # Note that when the length is zero, its embedding is always zero and
+        # is igrenod.
         length = xp.maximum(
             xp.sum((sentences != 0).astype('f'), axis=-1), 1)
         length = length.reshape((length.shape + (1, 1)))
