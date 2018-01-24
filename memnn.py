@@ -224,7 +224,7 @@ def main():
     vocab = collections.defaultdict(lambda: len(vocab))
     vocab['<unk>'] = 0
 
-    for data_id in range(1, 21):
+    for data_id in six.moves.range(1, 21):
 
         train_data = babi.read_data(
             vocab,
